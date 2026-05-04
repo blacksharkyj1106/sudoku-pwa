@@ -1,0 +1,19 @@
+{
+  "name": "数独",
+  "short_name": "数独",
+  "description": "适合手机和电脑的离线数独游戏",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f5f1",
+  "theme_color": "#f27524",
+  "icons": [
+    {
+      "src": "apple-touch-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
