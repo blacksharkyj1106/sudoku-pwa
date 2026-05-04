@@ -2,8 +2,8 @@ import { buildLevels, countSolutions, dailyPuzzle } from '../src/sudoku.ts'
 
 const levels = buildLevels()
 
-if (levels.length !== 30) {
-  throw new Error(`Expected 30 levels, got ${levels.length}`)
+if (levels.length !== 50) {
+  throw new Error(`Expected 50 levels, got ${levels.length}`)
 }
 
 let previousClues = 82

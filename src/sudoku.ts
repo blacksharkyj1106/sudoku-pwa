@@ -16,10 +16,10 @@ const BASE_SOLUTIONS = [
 ]
 
 const DIFFICULTY_TARGETS = [
-  ...Array(8).fill({ difficulty: 'Easy' as const, clues: 42 }),
-  ...Array(8).fill({ difficulty: 'Medium' as const, clues: 36 }),
-  ...Array(8).fill({ difficulty: 'Hard' as const, clues: 31 }),
-  ...Array(6).fill({ difficulty: 'Expert' as const, clues: 27 }),
+  ...Array(14).fill({ difficulty: 'Easy' as const, clues: 42 }),
+  ...Array(14).fill({ difficulty: 'Medium' as const, clues: 36 }),
+  ...Array(12).fill({ difficulty: 'Hard' as const, clues: 31 }),
+  ...Array(10).fill({ difficulty: 'Expert' as const, clues: 27 }),
 ]
 
 function seededRandom(seed: number) {

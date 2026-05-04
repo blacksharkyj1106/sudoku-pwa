@@ -30,6 +30,7 @@ const TEXT = {
   eyebrow: 'Sudoku PWA',
   levels: '\u5173\u5361',
   daily: '\u6bcf\u65e5',
+  chooseLevel: '\u9009\u62e9\u5173\u5361',
   restart: '\u91cd\u5f00',
   note: '\u7b14\u8bb0',
   undo: '\u64a4\u9500',
@@ -60,7 +61,9 @@ function readPreferences() {
     return {
       mode: parsed.mode ?? fallback.mode,
       levelIndex:
-        typeof parsed.levelIndex === 'number' ? Math.min(29, Math.max(0, parsed.levelIndex)) : fallback.levelIndex,
+        typeof parsed.levelIndex === 'number'
+          ? Math.min(LEVELS.length - 1, Math.max(0, parsed.levelIndex))
+          : fallback.levelIndex,
       themeId: parsed.themeId ?? fallback.themeId,
     }
   } catch {
@@ -115,6 +118,7 @@ function App() {
   const [preferences] = useState(readPreferences)
   const [mode, setMode] = useState<'levels' | 'daily'>(preferences.mode)
   const [levelIndex, setLevelIndex] = useState(preferences.levelIndex)
+  const [levelPickerOpen, setLevelPickerOpen] = useState(false)
   const [themeId, setThemeId] = useState(preferences.themeId)
   const puzzle = useMemo(() => (mode === 'daily' ? dailyPuzzle() : LEVELS[levelIndex]), [levelIndex, mode])
   const [game, setGame] = useState(() => readSavedGame(puzzle))
@@ -241,7 +245,9 @@ function App() {
         </div>
         <div className="stats-strip">
           <span>{formatTime(game.seconds)}</span>
-          <span>{progress}/30</span>
+          <span>
+            {progress}/{LEVELS.length}
+          </span>
           <span>
             {game.mistakes} {TEXT.mistakes}
           </span>
@@ -303,22 +309,6 @@ function App() {
             </button>
           </div>
 
-          {mode === 'levels' && (
-            <div className="level-grid" aria-label="Level selector">
-              {LEVELS.map((level, index) => (
-                <button
-                  data-active={index === levelIndex}
-                  data-done={localStorage.getItem(`${STORAGE_KEY}-${level.id}`) === 'done'}
-                  key={level.id}
-                  type="button"
-                  onClick={() => selectPuzzle('levels', index)}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="number-pad">
             {'123456789'.split('').map((number) => (
               <button key={number} type="button" onClick={() => enterNumber(number)}>
@@ -345,6 +335,42 @@ function App() {
               {TEXT.hint}
             </button>
           </div>
+
+          {mode === 'levels' && (
+            <section className="level-picker" data-open={levelPickerOpen}>
+              <button
+                aria-controls="level-grid"
+                aria-expanded={levelPickerOpen}
+                className="level-toggle"
+                type="button"
+                onClick={() => setLevelPickerOpen((open) => !open)}
+              >
+                <span>{TEXT.chooseLevel}</span>
+                <strong>
+                  {levelIndex + 1}/{LEVELS.length}
+                </strong>
+              </button>
+
+              {levelPickerOpen && (
+                <div className="level-grid" id="level-grid" aria-label="Level selector">
+                  {LEVELS.map((level, index) => (
+                    <button
+                      data-active={index === levelIndex}
+                      data-done={localStorage.getItem(`${STORAGE_KEY}-${level.id}`) === 'done'}
+                      key={level.id}
+                      type="button"
+                      onClick={() => {
+                        selectPuzzle('levels', index)
+                        setLevelPickerOpen(false)
+                      }}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="theme-row" aria-label="Theme selector">
             {THEMES.map((item) => (

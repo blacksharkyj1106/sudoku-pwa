@@ -211,6 +211,7 @@ h2 {
 
 .segment,
 .level-card,
+.level-picker,
 .tool-grid,
 .theme-row {
   display: grid;
@@ -232,6 +233,7 @@ button {
 
 .segment button,
 .ghost-button,
+.level-toggle,
 .tool-grid button,
 .level-grid button,
 .number-pad button {
@@ -270,6 +272,43 @@ button {
 
 .ghost-button {
   padding: 0 16px;
+}
+
+.level-picker {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-strong), var(--primary) 3%);
+}
+
+.level-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  text-align: left;
+}
+
+.level-toggle::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-left: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
+}
+
+.level-toggle strong {
+  grid-column: 2;
+  grid-row: 1;
+  margin-right: 18px;
+  color: color-mix(in srgb, var(--primary), var(--text) 18%);
+}
+
+.level-picker[data-open='true'] .level-toggle::after {
+  transform: rotate(225deg) translateY(-2px);
 }
 
 .level-grid {
@@ -356,6 +395,7 @@ button {
 @media (hover: hover) {
   .segment button:hover,
   .ghost-button:hover,
+  .level-toggle:hover,
   .tool-grid button:hover,
   .level-grid button:hover,
   .number-pad button:hover {
@@ -498,6 +538,11 @@ button {
 
   .complete-banner {
     order: 7;
+  }
+
+  .level-picker {
+    order: 5;
+    padding: 6px;
   }
 
   .ghost-button {
