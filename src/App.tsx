@@ -138,11 +138,10 @@ function App() {
   const unlockedLevelIndex = getUnlockedLevelIndex()
 
   useEffect(() => {
-    const pageColor = theme.mode === 'dark' ? '#111111' : '#f7f5f1'
-    document.documentElement.style.backgroundColor = pageColor
-    document.body.style.backgroundColor = pageColor
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', pageColor)
-  }, [theme.mode])
+    document.documentElement.style.backgroundColor = theme.secondary
+    document.body.style.backgroundColor = theme.secondary
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.secondary)
+  }, [theme.secondary])
 
   useEffect(() => {
     let active = true
