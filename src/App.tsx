@@ -138,6 +138,13 @@ function App() {
   const unlockedLevelIndex = getUnlockedLevelIndex()
 
   useEffect(() => {
+    const pageColor = theme.mode === 'dark' ? '#111111' : '#f7f5f1'
+    document.documentElement.style.backgroundColor = pageColor
+    document.body.style.backgroundColor = pageColor
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', pageColor)
+  }, [theme.mode])
+
+  useEffect(() => {
     let active = true
     window.setTimeout(() => {
       if (active) setGame(readSavedGame(puzzle))
