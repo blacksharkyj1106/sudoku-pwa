@@ -31,6 +31,7 @@ const TEXT = {
   levels: '\u5173\u5361',
   daily: '\u6bcf\u65e5',
   chooseLevel: '\u9009\u62e9\u5173\u5361',
+  next: '\u4e0b\u4e00\u5173',
   restart: '\u91cd\u5f00',
   note: '\u7b14\u8bb0',
   undo: '\u64a4\u9500',
@@ -52,6 +53,15 @@ const THEMES: Theme[] = [
 const STORAGE_KEY = 'sudoku-pwa-state-v1'
 const LEVELS = buildLevels()
 
+function isLevelDone(level: Puzzle) {
+  return localStorage.getItem(`${STORAGE_KEY}-${level.id}`) === 'done'
+}
+
+function getUnlockedLevelIndex() {
+  const firstOpen = LEVELS.findIndex((level) => !isLevelDone(level))
+  return firstOpen === -1 ? LEVELS.length - 1 : firstOpen
+}
+
 function readPreferences() {
   const fallback = { mode: 'levels' as const, levelIndex: 0, themeId: THEMES[0].id }
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -62,7 +72,7 @@ function readPreferences() {
       mode: parsed.mode ?? fallback.mode,
       levelIndex:
         typeof parsed.levelIndex === 'number'
-          ? Math.min(LEVELS.length - 1, Math.max(0, parsed.levelIndex))
+          ? Math.min(getUnlockedLevelIndex(), Math.max(0, parsed.levelIndex))
           : fallback.levelIndex,
       themeId: parsed.themeId ?? fallback.themeId,
     }
@@ -124,7 +134,8 @@ function App() {
   const [game, setGame] = useState(() => readSavedGame(puzzle))
   const theme = THEMES.find((item) => item.id === themeId) ?? THEMES[0]
   const givens = puzzle.givens
-  const progress = LEVELS.filter((level) => localStorage.getItem(`${STORAGE_KEY}-${level.id}`) === 'done').length
+  const progress = LEVELS.filter(isLevelDone).length
+  const unlockedLevelIndex = getUnlockedLevelIndex()
 
   useEffect(() => {
     let active = true
@@ -161,8 +172,14 @@ function App() {
   }
 
   function selectPuzzle(nextMode: 'levels' | 'daily', index = levelIndex) {
+    if (nextMode === 'levels' && index > unlockedLevelIndex) return
     setMode(nextMode)
     setLevelIndex(index)
+  }
+
+  function nextLevel() {
+    const index = Math.min(levelIndex + 1, LEVELS.length - 1)
+    selectPuzzle('levels', index)
   }
 
   function enterNumber(number: string) {
@@ -356,7 +373,9 @@ function App() {
                   {LEVELS.map((level, index) => (
                     <button
                       data-active={index === levelIndex}
-                      data-done={localStorage.getItem(`${STORAGE_KEY}-${level.id}`) === 'done'}
+                      data-done={isLevelDone(level)}
+                      data-locked={index > unlockedLevelIndex}
+                      disabled={index > unlockedLevelIndex}
                       key={level.id}
                       type="button"
                       onClick={() => {
@@ -394,6 +413,11 @@ function App() {
               <span>
                 {TEXT.timeUsed} {formatTime(game.seconds)}
               </span>
+              {mode === 'levels' && levelIndex < LEVELS.length - 1 && (
+                <button type="button" onClick={nextLevel}>
+                  {TEXT.next}
+                </button>
+              )}
             </div>
           )}
         </aside>
