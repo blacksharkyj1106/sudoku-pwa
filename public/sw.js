@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sudoku-pwa-v5'
+const CACHE_NAME = 'sudoku-pwa-v6'
 const APP_SHELL = ['.', 'index.html', 'manifest.webmanifest', 'favicon.svg', 'apple-touch-icon.svg']
 
 async function discoverBuildAssets() {

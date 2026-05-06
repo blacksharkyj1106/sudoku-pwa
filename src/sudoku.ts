@@ -8,11 +8,18 @@ export type Puzzle = {
   solution: string
 }
 
+export const SUDOKU_DATA_VERSION = 2
+
+const DIGITS = '123456789'
+const EMPTY = '0'
+const FALLBACK_SOLUTION = '534678912672195348198342567859761423426853791713924856961537284287419635345286179'
+const FALLBACK_GIVENS = '530070000600195000098000060800060003400803001700020006060000280000419005000080079'
+
 const BASE_SOLUTIONS = [
-  '534678912672195348198342567859761423426853791713924856961537284287419635345286179',
-  '417369825632158947958724316158293764273641589964875132725936418381524697649187253',
-  '945321786217856394386794521758143962621978453493562817862417935134285679579639248',
-  '872643951513987426496125783759361842621478539348592167937856214284719365165234978',
+  FALLBACK_SOLUTION,
+  '349687251257319684186254397573826149691475823824931765432198576915762438768543912',
+  '837162594192534786456897231375649128248351679619728345983215467564973812721486953',
+  '176523489284179635395864172531486297867291354429357861618745923953612748742938516',
 ]
 
 const DIFFICULTY_TARGETS = [
@@ -21,6 +28,75 @@ const DIFFICULTY_TARGETS = [
   ...Array(12).fill({ difficulty: 'Hard' as const, clues: 31 }),
   ...Array(10).fill({ difficulty: 'Expert' as const, clues: 27 }),
 ]
+
+function unitIndexes() {
+  const units: number[][] = []
+
+  for (let row = 0; row < 9; row += 1) {
+    units.push(Array.from({ length: 9 }, (_, col) => row * 9 + col))
+  }
+
+  for (let col = 0; col < 9; col += 1) {
+    units.push(Array.from({ length: 9 }, (_, row) => row * 9 + col))
+  }
+
+  for (let boxRow = 0; boxRow < 3; boxRow += 1) {
+    for (let boxCol = 0; boxCol < 3; boxCol += 1) {
+      units.push(
+        Array.from({ length: 9 }, (_, offset) => {
+          const row = boxRow * 3 + Math.floor(offset / 3)
+          const col = boxCol * 3 + (offset % 3)
+          return row * 9 + col
+        }),
+      )
+    }
+  }
+
+  return units
+}
+
+const UNITS = unitIndexes()
+
+function isPuzzleShape(board: string) {
+  return /^[0-9]{81}$/.test(board)
+}
+
+export function findConflictIndexes(board: string): Set<number> {
+  const conflicts = new Set<number>()
+  if (!isPuzzleShape(board)) return conflicts
+
+  for (const unit of UNITS) {
+    const seen = new Map<string, number[]>()
+    for (const index of unit) {
+      const value = board[index]
+      if (value === EMPTY) continue
+      seen.set(value, [...(seen.get(value) ?? []), index])
+    }
+    for (const indexes of seen.values()) {
+      if (indexes.length > 1) indexes.forEach((index) => conflicts.add(index))
+    }
+  }
+
+  return conflicts
+}
+
+export function isValidCompleteSolution(solution: string): boolean {
+  if (!new RegExp(`^[${DIGITS}]{81}$`).test(solution)) return false
+
+  return UNITS.every((unit) => unit.map((index) => solution[index]).sort().join('') === DIGITS)
+}
+
+export function isValidPuzzleAgainstSolution(puzzle: string, solution: string): boolean {
+  if (!isPuzzleShape(puzzle)) return false
+  if (!isValidCompleteSolution(solution)) return false
+  if (findConflictIndexes(puzzle).size > 0) return false
+
+  return puzzle.split('').every((cell, index) => cell === EMPTY || cell === solution[index])
+}
+
+export function validateSudokuBundle(bundle: Pick<Puzzle, 'givens' | 'solution'>): boolean {
+  return isValidPuzzleAgainstSolution(bundle.givens, bundle.solution) && countSolutions(bundle.givens, 2) === 1
+}
 
 function seededRandom(seed: number) {
   let value = seed % 2147483647
@@ -42,6 +118,8 @@ function shuffledIndexes(seed: number) {
 }
 
 export function countSolutions(board: string, limit = 2) {
+  if (!isPuzzleShape(board) || findConflictIndexes(board).size > 0) return 0
+
   const cells = board.split('')
   let count = 0
 
@@ -51,7 +129,7 @@ export function countSolutions(board: string, limit = 2) {
     let candidates: string[] = []
 
     for (let i = 0; i < 81; i += 1) {
-      if (cells[i] !== '0') continue
+      if (cells[i] !== EMPTY) continue
       const options = getCandidates(cells, i)
       if (options.length === 0) return
       if (best === -1 || options.length < candidates.length) {
@@ -66,9 +144,10 @@ export function countSolutions(board: string, limit = 2) {
     }
 
     for (const candidate of candidates) {
+      if (count >= limit) return
       cells[best] = candidate
       solve()
-      cells[best] = '0'
+      cells[best] = EMPTY
     }
   }
 
@@ -89,30 +168,53 @@ function getCandidates(cells: string[], index: number) {
     used.add(cells[(boxRow + Math.floor(i / 3)) * 9 + boxCol + (i % 3)])
   }
 
-  return '123456789'.split('').filter((number) => !used.has(number))
+  return DIGITS.split('').filter((number) => !used.has(number))
 }
 
 export function makePuzzle(solution: string, clues: number, seed: number) {
-  const puzzle = solution.split('')
-  for (const index of shuffledIndexes(seed)) {
-    if (puzzle.filter((cell) => cell !== '0').length <= clues) break
-    const backup = puzzle[index]
-    puzzle[index] = '0'
-    if (countSolutions(puzzle.join(''), 2) !== 1) puzzle[index] = backup
+  if (!isValidCompleteSolution(solution)) return FALLBACK_GIVENS
+
+  const targetClues = Math.min(81, Math.max(17, clues))
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const puzzle = solution.split('')
+    for (const index of shuffledIndexes(seed + attempt * 101)) {
+      if (puzzle.filter((cell) => cell !== EMPTY).length <= targetClues) break
+      const backup = puzzle[index]
+      puzzle[index] = EMPTY
+      if (countSolutions(puzzle.join(''), 2) !== 1) puzzle[index] = backup
+    }
+
+    const givens = puzzle.join('')
+    if (validateSudokuBundle({ givens, solution })) return givens
   }
-  return puzzle.join('')
+
+  return validateSudokuBundle({ givens: FALLBACK_GIVENS, solution: FALLBACK_SOLUTION }) ? FALLBACK_GIVENS : solution
+}
+
+function fallbackPuzzle(id: string, title: string, difficulty: Difficulty): Puzzle {
+  return {
+    id,
+    title,
+    difficulty,
+    givens: FALLBACK_GIVENS,
+    solution: FALLBACK_SOLUTION,
+  }
 }
 
 export function buildLevels(): Puzzle[] {
   return DIFFICULTY_TARGETS.map((settings, index) => {
+    const id = `level-${index + 1}`
+    const title = `\u7b2c ${index + 1} \u5173`
     const solution = BASE_SOLUTIONS[index % BASE_SOLUTIONS.length]
-    return {
-      id: `level-${index + 1}`,
-      title: `\u7b2c ${index + 1} \u5173`,
+    const puzzle = {
+      id,
+      title,
       difficulty: settings.difficulty,
       givens: makePuzzle(solution, settings.clues, 9000 + index * 37),
       solution,
     }
+
+    return validateSudokuBundle(puzzle) ? puzzle : fallbackPuzzle(id, title, settings.difficulty)
   })
 }
 
@@ -123,11 +225,13 @@ export function dailyPuzzle(date = new Date()): Puzzle {
     ).padStart(2, '0')}`,
   )
   const solution = BASE_SOLUTIONS[key % BASE_SOLUTIONS.length]
-  return {
+  const puzzle = {
     id: `daily-${key}`,
     title: '\u6bcf\u65e5\u9898',
-    difficulty: 'Medium',
+    difficulty: 'Medium' as const,
     givens: makePuzzle(solution, 34, key),
     solution,
   }
+
+  return validateSudokuBundle(puzzle) ? puzzle : fallbackPuzzle(puzzle.id, puzzle.title, puzzle.difficulty)
 }

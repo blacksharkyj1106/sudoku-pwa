@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { buildLevels, dailyPuzzle, type Puzzle } from './sudoku'
+import {
+  SUDOKU_DATA_VERSION,
+  buildLevels,
+  dailyPuzzle,
+  findConflictIndexes,
+  validateSudokuBundle,
+  type Puzzle,
+} from './sudoku'
 import './App.css'
 
 type Theme = {
@@ -50,7 +57,7 @@ const THEMES: Theme[] = [
   { id: 'cyan', name: '\u9752\u84dd', primary: '#38bddb', secondary: '#10272f', mode: 'dark' },
 ]
 
-const STORAGE_KEY = 'sudoku-pwa-state-v1'
+const STORAGE_KEY = `sudoku-pwa-state-v${SUDOKU_DATA_VERSION}`
 const LEVELS = buildLevels()
 
 function isLevelDone(level: Puzzle) {
@@ -85,9 +92,25 @@ function readPreferences() {
 function readSavedGame(puzzle: Puzzle): GameState {
   const saved = localStorage.getItem(`${STORAGE_KEY}-${puzzle.id}-game`)
   if (!saved) return emptyGame(puzzle)
+  if (!validateSudokuBundle(puzzle)) {
+    localStorage.removeItem(`${STORAGE_KEY}-${puzzle.id}-game`)
+    return emptyGame(puzzle)
+  }
+
   try {
     const parsed = JSON.parse(saved) as GameState
-    return parsed.puzzleId === puzzle.id ? parsed : emptyGame(puzzle)
+    if (parsed.puzzleId !== puzzle.id) return emptyGame(puzzle)
+    if (!Array.isArray(parsed.cells) || parsed.cells.length !== 81) return emptyGame(puzzle)
+    if (!parsed.cells.every((cell) => cell === '' || /^[1-9]$/.test(cell))) return emptyGame(puzzle)
+    if (!Array.isArray(parsed.notes) || parsed.notes.length !== 81) return emptyGame(puzzle)
+    if (!parsed.notes.every((notes) => Array.isArray(notes) && notes.every((note) => /^[1-9]$/.test(note)))) {
+      return emptyGame(puzzle)
+    }
+    if (parsed.cells.some((cell, index) => puzzle.givens[index] !== '0' && cell !== puzzle.givens[index])) {
+      return emptyGame(puzzle)
+    }
+
+    return parsed
   } catch {
     localStorage.removeItem(`${STORAGE_KEY}-${puzzle.id}-game`)
     return emptyGame(puzzle)
@@ -136,6 +159,9 @@ function App() {
   const givens = puzzle.givens
   const progress = LEVELS.filter(isLevelDone).length
   const unlockedLevelIndex = getUnlockedLevelIndex()
+  const puzzleValid = validateSudokuBundle(puzzle)
+  const board = useMemo(() => game.cells.map((cell) => cell || '0').join(''), [game.cells])
+  const conflictIndexes = useMemo(() => findConflictIndexes(board), [board])
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = theme.secondary
@@ -204,8 +230,11 @@ function App() {
 
     cells[index] = cells[index] === number ? '' : number
     notes[index] = []
-    const wrong = number !== puzzle.solution[index]
-    const completed = cells.join('') === puzzle.solution
+    const boardAfterInput = cells.map((cell) => cell || '0').join('')
+    const conflicts = findConflictIndexes(boardAfterInput)
+    const placed = cells[index]
+    const wrong = Boolean(placed) && (placed !== puzzle.solution[index] || conflicts.has(index))
+    const completed = cells.join('') === puzzle.solution && conflicts.size === 0
     if (completed) localStorage.setItem(`${STORAGE_KEY}-${puzzle.id}`, 'done')
     commit({ cells, notes, mistakes: game.mistakes + (wrong ? 1 : 0), completed })
   }
@@ -240,7 +269,7 @@ function App() {
     const notes = game.notes.map((item) => [...item])
     cells[index] = puzzle.solution[index]
     notes[index] = []
-    const completed = cells.join('') === puzzle.solution
+    const completed = cells.join('') === puzzle.solution && findConflictIndexes(cells.join('')).size === 0
     if (completed) localStorage.setItem(`${STORAGE_KEY}-${puzzle.id}`, 'done')
     commit({ cells, notes, selected: index, completed })
   }
@@ -248,6 +277,36 @@ function App() {
   function reset() {
     localStorage.removeItem(`${STORAGE_KEY}-${puzzle.id}-game`)
     setGame(emptyGame(puzzle))
+  }
+
+  if (!puzzleValid) {
+    return (
+      <main
+        className="app-shell"
+        data-mode={theme.mode}
+        style={
+          {
+            '--primary': theme.primary,
+            '--secondary': theme.secondary,
+          } as React.CSSProperties
+        }
+      >
+        <section className="top-bar">
+          <div>
+            <p className="eyebrow">{TEXT.eyebrow}</p>
+            <h1>{TEXT.appName}</h1>
+          </div>
+        </section>
+        <section className="game-layout">
+          <div className="complete-banner">
+            <strong>题目数据异常，请重开</strong>
+            <button type="button" onClick={reset}>
+              {TEXT.restart}
+            </button>
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -285,7 +344,7 @@ function App() {
               const related = game.selected !== null && isPeer(game.selected, index)
               const same = cell && game.selected !== null && cell === game.cells[game.selected]
               const fixed = givens[index] !== '0'
-              const wrong = cell && cell !== puzzle.solution[index]
+              const wrong = Boolean(cell) && (cell !== puzzle.solution[index] || conflictIndexes.has(index))
 
               return (
                 <button
