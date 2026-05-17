@@ -3,8 +3,8 @@
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display",
     "Segoe UI", sans-serif;
   font-family: var(--font);
-  color: #171411;
-  background: #f7f5f1;
+  color: #1a1714;
+  background: #f5f3ef;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,7 +17,7 @@
 
 html {
   min-height: 100%;
-  background: #f7f5f1;
+  background: #f5f3ef;
 }
 
 body {
@@ -32,4 +32,8 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary, #f27524), transparent 70%);
 }
