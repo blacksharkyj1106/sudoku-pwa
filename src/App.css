@@ -355,6 +355,11 @@ button {
   background: color-mix(in srgb, var(--surface-strong), var(--primary) 6%);
 }
 
+.number-pad button[data-exhausted='true'] {
+  opacity: 0.28;
+  pointer-events: none;
+}
+
 .tool-grid {
   grid-template-columns: repeat(4, 1fr);
 }
@@ -422,6 +427,20 @@ button {
     transform: translateY(-1px);
     border-color: var(--primary);
   }
+}
+
+.segment button:active,
+.ghost-button:active,
+.tool-grid button:active,
+.level-grid button:active,
+.number-pad button:active {
+  transform: scale(0.95);
+  transition-duration: 60ms;
+}
+
+.cell:active {
+  background: var(--selected) !important;
+  transition: background 60ms;
 }
 
 @media (orientation: portrait), (max-width: 900px) {

@@ -163,6 +163,15 @@ function App() {
   const board = useMemo(() => game.cells.map((cell) => cell || '0').join(''), [game.cells])
   const conflictIndexes = useMemo(() => findConflictIndexes(board), [board])
 
+  const digitCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (let d = 1; d <= 9; d++) counts[String(d)] = 0
+    for (const cell of game.cells) {
+      if (cell) counts[cell] = (counts[cell] || 0) + 1
+    }
+    return counts
+  }, [game.cells])
+
   useEffect(() => {
     document.documentElement.style.backgroundColor = theme.secondary
     document.body.style.backgroundColor = theme.secondary
@@ -189,11 +198,63 @@ function App() {
 
   useEffect(() => {
     if (game.completed) return
-    const timer = window.setInterval(() => {
-      setGame((current) => ({ ...current, seconds: current.seconds + 1 }))
-    }, 1000)
-    return () => window.clearInterval(timer)
+    let timer: number
+    function start() {
+      timer = window.setInterval(() => {
+        setGame((current) => ({ ...current, seconds: current.seconds + 1 }))
+      }, 1000)
+    }
+    function onVisibility() {
+      window.clearInterval(timer)
+      if (!document.hidden) start()
+    }
+    start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [game.completed])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key >= '1' && e.key <= '9') {
+        e.preventDefault()
+        enterNumber(e.key)
+        return
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault()
+        erase()
+        return
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        setGame((c) => ({ ...c, noteMode: !c.noteMode }))
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        undo()
+        return
+      }
+      const arrows: Record<string, number> = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 }
+      if (arrows[e.key] !== undefined) {
+        e.preventDefault()
+        setGame((current) => {
+          const sel = current.selected ?? 40
+          let next = sel + arrows[e.key]
+          if (e.key === 'ArrowLeft' && sel % 9 === 0) next = sel + 8
+          if (e.key === 'ArrowRight' && sel % 9 === 8) next = sel - 8
+          if (next < 0) next += 81
+          if (next > 80) next -= 81
+          return { ...current, selected: next }
+        })
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
 
   function commit(next: Partial<GameState>) {
     setGame((current) => ({
@@ -230,6 +291,13 @@ function App() {
 
     cells[index] = cells[index] === number ? '' : number
     notes[index] = []
+    if (cells[index]) {
+      for (let i = 0; i < 81; i++) {
+        if (i !== index && isPeer(i, index)) {
+          notes[i] = notes[i].filter((n) => n !== cells[index])
+        }
+      }
+    }
     const boardAfterInput = cells.map((cell) => cell || '0').join('')
     const conflicts = findConflictIndexes(boardAfterInput)
     const placed = cells[index]
@@ -393,7 +461,12 @@ function App() {
 
           <div className="number-pad">
             {'123456789'.split('').map((number) => (
-              <button key={number} type="button" onClick={() => enterNumber(number)}>
+              <button
+                key={number}
+                type="button"
+                data-exhausted={digitCounts[number] >= 9}
+                onClick={() => enterNumber(number)}
+              >
                 {number}
               </button>
             ))}
