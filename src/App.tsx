@@ -172,6 +172,30 @@ function App() {
     return counts
   }, [game.cells])
 
+  const nakedSingles = useMemo(() => {
+    const singles = new Set<number>()
+    if (game.completed) return singles
+    const cells = game.cells
+    for (let i = 0; i < 81; i++) {
+      if (cells[i]) continue
+      const used = new Set<string>()
+      const row = Math.floor(i / 9)
+      const col = i % 9
+      const boxRow = Math.floor(row / 3) * 3
+      const boxCol = Math.floor(col / 3) * 3
+      for (let k = 0; k < 9; k++) {
+        const rv = cells[row * 9 + k]
+        const cv = cells[k * 9 + col]
+        const bv = cells[(boxRow + Math.floor(k / 3)) * 9 + boxCol + (k % 3)]
+        if (rv) used.add(rv)
+        if (cv) used.add(cv)
+        if (bv) used.add(bv)
+      }
+      if (used.size === 8) singles.add(i)
+    }
+    return singles
+  }, [game.cells, game.completed])
+
   useEffect(() => {
     document.documentElement.style.backgroundColor = theme.secondary
     document.body.style.backgroundColor = theme.secondary
@@ -418,6 +442,7 @@ function App() {
                 <button
                   className="cell"
                   data-fixed={fixed}
+                  data-hint={nakedSingles.has(index)}
                   data-related={related}
                   data-same={Boolean(same)}
                   data-selected={selected}
